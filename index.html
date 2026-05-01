@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PantallaCast AI — Panel de Emisión</title>
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+
+<div class="app-shell">
+
+  <!-- ═══════════════════════════════════════════════════════════
+       HEADER
+       ═══════════════════════════════════════════════════════════ -->
+  <header class="header">
+    <div class="header__brand">
+      <div class="header__icon">📡</div>
+      <span class="header__title">Pantalla<em>Cast</em> AI</span>
+    </div>
+
+    <div class="header__right">
+      <!-- Connection status badge — updated by ui.js -->
+      <div id="statusBadge" class="status-badge idle">
+        <span class="status-badge__dot" id="statusDot"></span>
+        <span id="statusText">Inactivo</span>
+      </div>
+
+      <!-- Opens the documentation modal -->
+      <button class="btn-manual" id="btnManual">📖 Manual</button>
+    </div>
+  </header>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       SIDEBAR — Controls
+       ═══════════════════════════════════════════════════════════ -->
+  <aside class="sidebar">
+
+    <!-- Capture controls -->
+    <p class="sidebar__label">Captura de pantalla</p>
+    <button class="btn btn--primary" id="btnStartShare">
+      🖥️ Iniciar compartición
+    </button>
+    <button class="btn btn--danger" id="btnStopShare" disabled>
+      ⏹ Detener compartición
+    </button>
+
+    <!-- Connection controls -->
+    <p class="sidebar__label">Conexión P2P</p>
+    <button class="btn btn--secondary" id="btnConnect" disabled>
+      🔗 Conectar receptor
+    </button>
+    <button class="btn btn--ghost" id="btnDisconnect" disabled>
+      🔌 Desconectar
+    </button>
+
+    <!-- Session info card -->
+    <p class="sidebar__label">Información de sesión</p>
+    <div class="info-card">
+      <div class="info-card__row">
+        <span class="info-card__key">Rol</span>
+        <span class="info-card__value highlight" id="infoRole">—</span>
+      </div>
+      <div class="info-card__row">
+        <span class="info-card__key">Receptores</span>
+        <span class="info-card__value" id="infoPeers">0</span>
+      </div>
+      <div class="info-card__row">
+        <span class="info-card__key">Fotogramas IA</span>
+        <span class="info-card__value" id="infoFrames">0</span>
+      </div>
+    </div>
+
+    <!-- AI analysis toggle -->
+    <div class="toggle-row">
+      <span class="toggle-row__label">🤖 Análisis de IA</span>
+      <label class="toggle">
+        <input type="checkbox" id="toggleAI" />
+        <span class="toggle__track"></span>
+      </label>
+    </div>
+
+  </aside>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       MAIN — Video area
+       ═══════════════════════════════════════════════════════════ -->
+  <main class="main">
+
+    <!-- Tab switcher: local preview vs remote stream -->
+    <div class="video-tabs">
+      <button class="video-tab active" id="tabLocal">
+        🖥️ Mi pantalla
+      </button>
+      <button class="video-tab" id="tabRemote">
+        📺 Pantalla remota
+      </button>
+    </div>
+
+    <div class="video-stage">
+
+      <!-- LOCAL panel -->
+      <div class="video-panel active" id="panelLocal">
+        <div class="empty-state" id="emptyLocal">
+          <div class="empty-state__icon">🖥️</div>
+          <div class="empty-state__title">Sin captura activa</div>
+          <div class="empty-state__desc">
+            Pulsa "Iniciar compartición" para comenzar
+          </div>
+        </div>
+        <video id="localVideo" autoplay muted playsinline></video>
+      </div>
+
+      <!-- REMOTE panel -->
+      <div class="video-panel" id="panelRemote">
+        <div class="empty-state" id="emptyRemote">
+          <div class="empty-state__icon">📡</div>
+          <div class="empty-state__title">Sin receptor conectado</div>
+          <div class="empty-state__desc">
+            Abre viewer.html en otro dispositivo de la misma red
+          </div>
+        </div>
+        <video id="remoteVideo" autoplay playsinline></video>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       AI PANEL
+       ═══════════════════════════════════════════════════════════ -->
+  <aside class="ai-panel">
+    <div class="ai-panel__header">
+      <div class="ai-panel__title">
+        <span class="ai-panel__title-icon">✨</span>
+        Análisis de IA
+      </div>
+      <button class="ai-panel__clear" id="btnClearLog">Limpiar</button>
+    </div>
+
+    <!-- Scrollable log feed -->
+    <div class="ai-log" id="aiLog">
+      <!-- Log entries are injected here by ui.js -->
+    </div>
+
+    <div class="ai-panel__footer">
+      <span class="ai-interval-label">Intervalo de análisis</span>
+      <select class="ai-interval-select" id="aiIntervalSelect">
+        <option value="1000">1 segundo</option>
+        <option value="2000">2 segundos</option>
+        <option value="3000" selected>3 segundos</option>
+        <option value="5000">5 segundos</option>
+        <option value="10000">10 segundos</option>
+      </select>
+    </div>
+  </aside>
+
+</div><!-- /.app-shell -->
+
+
+<!-- ═══════════════════════════════════════════════════════════════
+     MODAL — Manual / Documentación
+     ═══════════════════════════════════════════════════════════════ -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal">
+
+    <div class="modal__header">
+      <h2 class="modal__title">📖 Manual de <em>PantallaCast AI</em></h2>
+      <button class="modal__close" id="modalClose">✕</button>
+    </div>
+
+    <!-- Tab navigation -->
+    <div class="modal__tabs">
+      <button class="modal__tab active" data-tab="tabPermisos">🔐 Permisos</button>
+      <button class="modal__tab" data-tab="tabDescubrimiento">🔍 Descubrimiento</button>
+      <button class="modal__tab" data-tab="tabSolucion">🔧 Solución de problemas</button>
+    </div>
+
+    <div class="modal__body">
+
+      <!-- Tab 1: Permisos -->
+      <div class="doc-section active" id="tabPermisos">
+        <h3>🔐 Cómo otorgar permisos de pantalla</h3>
+        <p>
+          Cuando pulses <strong>Iniciar compartición</strong>, el navegador mostrará
+          un cuadro de diálogo pidiéndote que elijas qué compartir.
+        </p>
+        <ol>
+          <li>Selecciona <strong>Pantalla completa</strong>, una <strong>ventana</strong> específica, o una <strong>pestaña</strong>.</li>
+          <li>Haz clic en <strong>Compartir</strong> para confirmar.</li>
+          <li>Para detener, pulsa <strong>Detener compartición</strong> en esta aplicación o el botón que aparece en la barra del navegador.</li>
+        </ol>
+        <div class="callout">
+          💡 <strong>Consejo:</strong> Usar "Compartir una pestaña" es la opción más estable en Chrome y Edge.
+        </div>
+        <h3>🚫 Si el permiso fue denegado</h3>
+        <p>Sigue estos pasos para restablecer el permiso:</p>
+        <ol>
+          <li>Haz clic en el candado (🔒) en la barra de dirección.</li>
+          <li>Busca <strong>Acceso a la pantalla</strong> o <strong>Display capture</strong>.</li>
+          <li>Cámbialo a <strong>Permitir</strong> y recarga la página.</li>
+        </ol>
+        <div class="callout callout--warning">
+          ⚠️ La captura de pantalla solo funciona en <strong>Chrome, Edge y Firefox de escritorio</strong>. No está disponible en iOS ni en la mayoría de navegadores móviles.
+        </div>
+      </div>
+
+      <!-- Tab 2: Descubrimiento de dispositivos -->
+      <div class="doc-section" id="tabDescubrimiento">
+        <h3>🔍 Cómo funciona el descubrimiento de dispositivos</h3>
+        <p>
+          Esta aplicación usa <strong>WebRTC</strong> para transmitir video directamente
+          entre dos dispositivos (P2P), sin pasar el video por el servidor.
+          Sin embargo, para <em>iniciar</em> esa conexión, los dos dispositivos necesitan
+          intercambiar información de red a través de un servidor central. A eso se le llama <strong>señalización</strong>.
+        </p>
+        <h3>📋 Pasos para conectar dos dispositivos</h3>
+        <ol>
+          <li>Ambos dispositivos deben estar en la <strong>misma red Wi-Fi o LAN</strong>.</li>
+          <li>En el dispositivo <strong>Emisor</strong>: abre <code>http://[IP-del-servidor]:3000</code> y pulsa <strong>Iniciar compartición</strong>.</li>
+          <li>En el dispositivo <strong>Receptor</strong>: abre <code>http://[IP-del-servidor]:3000/viewer.html</code> y pulsa <strong>Conectar</strong>.</li>
+          <li>El servidor de señalización intercambia la oferta/respuesta WebRTC automáticamente.</li>
+          <li>Una vez establecida la conexión P2P, el video fluye <strong>directamente</strong> entre dispositivos.</li>
+        </ol>
+        <div class="callout">
+          🌐 Para encontrar la IP de tu servidor, ejecuta <code>ipconfig</code> (Windows) o <code>ifconfig</code> / <code>ip addr</code> (Linux/Mac) en la terminal.
+        </div>
+        <h3>🤖 Análisis de IA</h3>
+        <p>
+          Cada pocos segundos, la aplicación captura un fotograma de la pantalla, lo convierte
+          a imagen y lo envía al backend. El backend lo reenvía a <strong>Claude Vision</strong>
+          (claude-sonnet-4-20250514), que devuelve una descripción en tiempo real visible en el panel derecho.
+        </p>
+      </div>
+
+      <!-- Tab 3: Solución de problemas -->
+      <div class="doc-section" id="tabSolucion">
+        <h3>🔧 Problemas comunes y soluciones</h3>
+
+        <h3>❌ "No se pudo conectar al servidor de señalización"</h3>
+        <ul>
+          <li>Verifica que el servidor Node.js esté corriendo: <code>npm run dev</code></li>
+          <li>Asegúrate de que el puerto <code>3000</code> no esté bloqueado por el cortafuegos.</li>
+          <li>Comprueba que estás usando la IP correcta del servidor, no <code>localhost</code> desde otro dispositivo.</li>
+        </ul>
+
+        <h3>❌ El video no aparece en el receptor</h3>
+        <ul>
+          <li>Confirma que ambos dispositivos están en la <strong>misma red</strong>.</li>
+          <li>Los servidores STUN requieren acceso a internet para funcionar. Si estás en una red corporativa con proxy, pueden estar bloqueados.</li>
+          <li>Prueba reiniciando la conexión: desconecta y vuelve a conectar en ambos lados.</li>
+        </ul>
+
+        <h3>❌ El análisis de IA no funciona</h3>
+        <ul>
+          <li>Verifica que la variable <code>ANTHROPIC_API_KEY</code> esté definida en el archivo <code>.env</code>.</li>
+          <li>Revisa los logs del servidor en la terminal para ver el error exacto.</li>
+          <li>Asegúrate de que la captura de pantalla esté activa antes de activar el análisis.</li>
+        </ul>
+
+        <h3>❌ Captura de pantalla no disponible</h3>
+        <ul>
+          <li>Usa Chrome 72+, Edge 79+ o Firefox 66+ en escritorio.</li>
+          <li>La API de captura de pantalla solo funciona en <strong>HTTPS o localhost</strong>. Si accedes desde otro dispositivo, necesitas un certificado SSL o usar un túnel como <code>ngrok</code>.</li>
+        </ul>
+
+        <div class="callout callout--warning">
+          🔒 <strong>HTTPS requerido en producción:</strong> Para usar <code>getDisplayMedia()</code> desde un dominio real (no localhost), el sitio debe servirse sobre HTTPS. Durante el desarrollo en red local, puedes usar <code>ngrok</code> para obtener una URL HTTPS temporal.
+        </div>
+      </div>
+
+    </div><!-- /.modal__body -->
+  </div><!-- /.modal -->
+</div><!-- /.modal-overlay -->
+
+
+<!-- Toast notification container -->
+<div class="toast-container" id="toastContainer"></div>
+
+
+<!-- Load app.js as an ES module (enables import/export syntax) -->
+<script type="module" src="js/app.js"></script>
+
+</body>
+</html>

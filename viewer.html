@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PantallaCast AI — Receptor</title>
+  <link rel="stylesheet" href="css/styles.css" />
+  <style>
+    /* ── Viewer-specific overrides ── */
+    /* The viewer has a simpler single-column layout */
+    .app-shell {
+      grid-template-columns: 260px 1fr;
+      grid-template-areas:
+        "header  header"
+        "sidebar main";
+    }
+
+    /* Viewer sidebar is simpler — no AI panel needed on this side */
+    .viewer-log {
+      flex: 1;
+      overflow-y: auto;
+      padding: 0.6rem 0.3rem;
+      display: flex;
+      flex-direction: column-reverse; /* newest messages at top */
+      gap: 0.3rem;
+    }
+
+    .viewer-log::-webkit-scrollbar { width: 3px; }
+    .viewer-log::-webkit-scrollbar-thumb { background: var(--border); border-radius: 999px; }
+
+    .viewer-log p {
+      font-size: 0.72rem;
+      color: var(--text-3);
+      font-family: var(--font-mono);
+      line-height: 1.5;
+      padding: 0 0.3rem;
+    }
+
+    @media (max-width: 900px) {
+      .app-shell {
+        grid-template-columns: 1fr;
+        grid-template-areas: "header" "main" "sidebar";
+      }
+    }
+  </style>
+</head>
+<body>
+
+<div class="app-shell">
+
+  <!-- ═══════════════════════════════════════════════════
+       HEADER
+       ═══════════════════════════════════════════════════ -->
+  <header class="header">
+    <div class="header__brand">
+      <div class="header__icon">📺</div>
+      <span class="header__title">Pantalla<em>Cast</em> AI — <span style="color:var(--text-2);font-weight:400">Receptor</span></span>
+    </div>
+
+    <div class="header__right">
+      <div id="viewerBadge" class="status-badge idle">
+        <span class="status-badge__dot"></span>
+        <span id="viewerStatus">Inactivo</span>
+      </div>
+      <a href="/" style="text-decoration:none">
+        <button class="btn-manual">← Ir al Emisor</button>
+      </a>
+    </div>
+  </header>
+
+  <!-- ═══════════════════════════════════════════════════
+       SIDEBAR
+       ═══════════════════════════════════════════════════ -->
+  <aside class="sidebar">
+
+    <p class="sidebar__label">Conexión</p>
+    <button class="btn btn--primary" id="btnViewerConnect">
+      🔗 Conectar al emisor
+    </button>
+    <button class="btn btn--ghost" id="btnViewerDisconnect">
+      🔌 Desconectar
+    </button>
+
+    <div class="info-card" style="margin-top:0.4rem">
+      <div class="info-card__row">
+        <span class="info-card__key">Rol</span>
+        <span class="info-card__value highlight">Receptor</span>
+      </div>
+      <div class="info-card__row">
+        <span class="info-card__key">Servidor</span>
+        <span class="info-card__value" id="serverHost" style="font-size:.68rem">—</span>
+      </div>
+    </div>
+
+    <p class="sidebar__label" style="margin-top:0.4rem">Registro de eventos</p>
+    <div class="viewer-log" id="viewerLog"></div>
+
+    <!-- Quick instructions -->
+    <div class="info-card" style="margin-top:auto; border-color: var(--border-glow);">
+      <p style="font-size:.75rem; color:var(--text-2); line-height:1.55;">
+        💡 Abre <strong>index.html</strong> en el dispositivo emisor, inicia la compartición,
+        y luego pulsa <strong>Conectar</strong> aquí.
+      </p>
+    </div>
+
+  </aside>
+
+  <!-- ═══════════════════════════════════════════════════
+       MAIN — Remote video
+       ═══════════════════════════════════════════════════ -->
+  <main class="main">
+    <div class="video-tabs">
+      <button class="video-tab active" style="cursor:default">
+        📡 Pantalla del emisor
+      </button>
+    </div>
+
+    <div class="video-stage">
+      <div class="video-panel active" id="viewerPanel">
+        <div class="empty-state" id="viewerEmpty">
+          <div class="empty-state__icon">📡</div>
+          <div class="empty-state__title">Esperando al emisor</div>
+          <div class="empty-state__desc">
+            Pulsa "Conectar al emisor" para empezar a recibir video
+          </div>
+        </div>
+        <video id="remoteVideo" autoplay playsinline></video>
+      </div>
+    </div>
+  </main>
+
+</div>
+
+<div class="toast-container" id="toastContainer"></div>
+
+<script type="module">
+  // Inline script that sets the server host in the info card
+  document.getElementById('serverHost').textContent = location.host;
+</script>
+<script type="module" src="js/viewer.js"></script>
+
+</body>
+</html>
