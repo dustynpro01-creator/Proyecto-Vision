@@ -1,0 +1,17 @@
+{
+  "name": "screenshare-ai",
+  "version": "1.0.0",
+  "description": "Compartición de pantalla en tiempo real con análisis IA por Claude Vision",
+  "type": "module",
+  "main": "backend/server.js",
+  "scripts": {
+    "start": "node backend/server.js",
+    "dev":   "node --watch backend/server.js"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.51.0",
+    "dotenv":            "^16.4.0",
+    "express":           "^4.19.0",
+    "ws":                "^8.17.0"
+  }
+}
