@@ -1,59 +1,48 @@
 // backend/server.js
-// ─────────────────────────────────────────────────────────────────────────────
-// BACKEND: Express HTTP server + WebSocket signaling + Claude Vision proxy
-// ─────────────────────────────────────────────────────────────────────────────
 
-import express              from 'express';
-import http                 from 'http';
+import express from 'express';
+import http from 'http';
 import { WebSocketServer, WebSocket } from 'ws';
-import Anthropic            from '@anthropic-ai/sdk';
-import path                 from 'path';
-import { fileURLToPath }    from 'url';
-import dotenv               from 'dotenv';
+import { GoogleGenerativeAI } from "@google/generative-ai";
+import path from 'path';
+import { fileURLToPath } from 'url';
+import dotenv from 'dotenv';
 
 dotenv.config();
 
-// ES-module equivalent of __dirname
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-const app    = express();
+const app = express();
 const server = http.createServer(app);
 
-// ── Anthropic client ──────────────────────────────────────────────────────────
-const anthropic = new Anthropic();
+// ── Gemini client ─────────────────────────────────────────────────────────────
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
-// ── Middleware (CORREGIDO) ────────────────────────────────────────────────────
+// ── Middleware ────────────────────────────────────────────────────────────────
 app.use(express.json({ limit: '10mb' }));
-
-// Servir archivos desde la raíz del proyecto
 app.use(express.static(__dirname));
 
-// Ruta principal → index.html
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'index.html'));
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// SECTION A ─ WebSocket Signaling Server
+// WebSocket
 // ─────────────────────────────────────────────────────────────────────────────
 const wss = new WebSocketServer({ server, path: '/signal' });
-
 const peers = new Map();
 
 wss.on('connection', (ws) => {
-  console.log('[WS] Nueva conexión entrante');
-
   ws.on('message', (raw) => {
     let msg;
-    try { msg = JSON.parse(raw); }
-    catch { console.error('[WS] JSON inválido recibido'); return; }
+    try { msg = JSON.parse(raw); } catch { return; }
 
     const { type, role, payload } = msg;
 
     if (type === 'register') {
       peers.set(role, ws);
       ws._role = role;
-      console.log(`[WS] Registrado: ${role}`);
 
       if (role === 'sender' && peers.has('viewer')) {
         safeSend(ws, { type: 'viewer-ready' });
@@ -74,7 +63,6 @@ wss.on('connection', (ws) => {
     for (const [role, socket] of peers.entries()) {
       if (socket === ws) {
         peers.delete(role);
-        console.log(`[WS] Desconectado: ${role}`);
         const otherRole = role === 'sender' ? 'viewer' : 'sender';
         if (peers.has(otherRole)) {
           safeSend(peers.get(otherRole), { type: 'peer-disconnected' });
@@ -91,57 +79,42 @@ function safeSend(ws, data) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// SECTION B ─ AI Frame Analysis Endpoint
+// Gemini endpoint (REEMPLAZADO)
 // ─────────────────────────────────────────────────────────────────────────────
 app.post('/analyze-frame', async (req, res) => {
   const { frame } = req.body;
-  if (!frame) return res.status(400).json({ error: 'No se recibió ningún fotograma.' });
+  if (!frame) return res.status(400).json({ error: 'No se recibió el fotograma.' });
 
   const base64Data = frame.replace(/^data:image\/\w+;base64,/, '');
 
-  res.setHeader('Content-Type',  'text/event-stream');
+  res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
-  res.setHeader('Connection',    'keep-alive');
+  res.setHeader('Connection', 'keep-alive');
 
   try {
-    const stream = anthropic.messages.stream({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 350,
-      messages: [{
-        role: 'user',
-        content: [
-          {
-            type: 'image',
-            source: { type: 'base64', media_type: 'image/png', data: base64Data },
-          },
-          {
-            type: 'text',
-            text: `Eres un asistente que analiza pantallas compartidas en tiempo real.
-Describe brevemente (2-3 oraciones) lo que ves en esta captura de pantalla.
-Enfócate en: la aplicación activa, el contenido visible y cualquier actividad notable.
-Responde en español, de forma clara y directa.`,
-          },
-        ],
-      }],
-    });
+    const imageParts = [{
+      inlineData: {
+        data: base64Data,
+        mimeType: "image/png"
+      }
+    }];
 
-    stream.on('text', (text) => {
-      res.write(`data: ${JSON.stringify({ delta: text })}\n\n`);
-    });
+    const prompt = "Eres un asistente que analiza pantallas en tiempo real. Describe brevemente (2-3 oraciones) lo que ves en esta captura. Responde en español.";
 
-    stream.on('finalMessage', () => {
-      res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
-      res.end();
-    });
+    const result = await model.generateContentStream([prompt, ...imageParts]);
 
-    stream.on('error', (err) => {
-      console.error('[AI] Error en stream:', err.message);
-      res.write(`data: ${JSON.stringify({ error: err.message })}\n\n`);
-      res.end();
-    });
+    for await (const chunk of result.stream) {
+      const text = chunk.text();
+      if (text) {
+        res.write(`data: ${JSON.stringify({ delta: text })}\n\n`);
+      }
+    }
+
+    res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
+    res.end();
 
   } catch (err) {
-    console.error('[AI] Error fatal:', err.message);
+    console.error('[Gemini Error]:', err.message);
     res.write(`data: ${JSON.stringify({ error: err.message })}\n\n`);
     res.end();
   }
@@ -150,6 +123,5 @@ Responde en español, de forma clara y directa.`,
 // ── Start ─────────────────────────────────────────────────────────────────────
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
-  console.log(`\n✅  Servidor iniciado en  → http://localhost:${PORT}`);
-  console.log(`🔌  WebSocket señalización → ws://localhost:${PORT}/signal\n`);
+  console.log(`Servidor en http://localhost:${PORT}`);
 });
